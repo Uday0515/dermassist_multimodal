@@ -1,0 +1,18 @@
+[project]
+name = "dermassist-multimodal"
+version = "0.1.0"
+description = "Educational multimodal skin-concern assistant with Streamlit and FastAPI."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "groq>=0.18.0",
+    "httpx>=0.27.0",
+    "pydantic-settings>=2.6.0",
+    "python-multipart>=0.0.20",
+    "streamlit>=1.40.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[tool.ruff]
+line-length = 100

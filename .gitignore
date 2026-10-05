@@ -1,0 +1,16 @@
+.venv/
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.streamlit/secrets.toml
+*.mp3
+*.wav
+*.tmp
+*.temp
+generated_audio/
