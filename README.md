@@ -106,6 +106,3 @@ The response includes `guidance`, an optional `transcript`, and optional base64-
 
 DermaAssist provides general educational information only. It must not be used to diagnose a condition, select treatment, or replace a qualified healthcare professional. For urgent or concerning symptoms, seek professional medical care.
 
-## License
-
-No license has been added yet. Add an appropriate license before accepting external contributions or redistributing the project.
