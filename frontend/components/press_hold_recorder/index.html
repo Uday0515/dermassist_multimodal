@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #17212b; }
+    body { margin: 0; }
+    .wrap { display: grid; gap: 8px; }
+    button {
+      width: 100%; min-height: 72px; border: 1px solid #2c6e91; border-radius: 12px;
+      background: #e8f3f8; color: #12384d; font: inherit; font-weight: 700;
+      cursor: pointer; touch-action: none; user-select: none;
+    }
+    button.recording { background: #ffe8e8; border-color: #b42318; color: #7a1710; }
+    button:disabled { cursor: wait; opacity: .7; }
+    .hint { color: #425466; font-size: .9rem; }
+    .error { color: #9c1c13; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <button id="record" type="button" aria-label="Hold to record">Hold to record</button>
+    <div id="hint" class="hint">Your browser may ask for microphone permission.</div>
+    <div id="error" class="error" role="alert"></div>
+  </div>
+  <script>
+    const recordButton = document.getElementById("record");
+    const hint = document.getElementById("hint");
+    const error = document.getElementById("error");
+    let recorder = null;
+    let chunks = [];
+    let startedAt = 0;
+    let pointerHeld = false;
+
+    function sendValue(value) {
+      window.parent.postMessage({isStreamlitMessage: true, type: "streamlit:setComponentValue", value}, "*");
+    }
+    function setHeight() {
+      window.parent.postMessage({isStreamlitMessage: true, type: "streamlit:setFrameHeight", height: document.body.scrollHeight}, "*");
+    }
+    function setError(message) {
+      error.textContent = message || "";
+      setHeight();
+    }
+    function chooseMimeType() {
+      const choices = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+      return choices.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+    }
+    async function startRecording(event) {
+      event.preventDefault();
+      pointerHeld = true;
+      if (recorder && recorder.state === "recording") return;
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        setError("This browser does not support in-app recording. Use the audio file upload fallback.");
+        return;
+      }
+      setError("");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        const mimeType = chooseMimeType();
+        recorder = new MediaRecorder(stream, mimeType ? {mimeType} : undefined);
+        chunks = [];
+        startedAt = Date.now();
+        recorder.ondataavailable = (item) => { if (item.data.size) chunks.push(item.data); };
+        recorder.onerror = () => setError("Recording failed. Please try again or use the file upload fallback.");
+        recorder.onstop = async () => {
+          stream.getTracks().forEach((track) => track.stop());
+          recordButton.disabled = false;
+          recordButton.classList.remove("recording");
+          recordButton.textContent = "Hold to record";
+          hint.textContent = "Recording captured. Add an image and submit for processing.";
+          const blob = new Blob(chunks, {type: recorder.mimeType || "audio/webm"});
+          if (blob.size === 0 || Date.now() - startedAt < 250) {
+            setError("No usable audio was captured. Hold the control while speaking and try again.");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onloadend = () => sendValue({
+            audio_base64: reader.result.split(",")[1],
+            mime_type: blob.type || "audio/webm",
+            duration_ms: Date.now() - startedAt
+          });
+          reader.readAsDataURL(blob);
+        };
+        recorder.start();
+        recordButton.classList.add("recording");
+        recordButton.textContent = "Recording — release to stop";
+        hint.textContent = "Recording… release the button when you finish speaking.";
+        recordButton.setPointerCapture?.(event.pointerId);
+        if (!pointerHeld) stopRecording(event);
+      } catch (exception) {
+        const message = exception && exception.name === "NotAllowedError"
+          ? "Microphone permission was denied. Allow access in your browser, then try again."
+          : "Could not start the microphone. Check browser permissions or use the file upload fallback.";
+        setError(message);
+        hint.textContent = "Microphone access is needed for in-app recording.";
+      }
+    }
+    function stopRecording(event) {
+      event.preventDefault();
+      pointerHeld = false;
+      if (!recorder || recorder.state !== "recording") return;
+      hint.textContent = "Processing recording…";
+      recorder.stop();
+    }
+    recordButton.addEventListener("pointerdown", startRecording);
+    recordButton.addEventListener("pointerup", stopRecording);
+    recordButton.addEventListener("pointercancel", stopRecording);
+    recordButton.addEventListener("lostpointercapture", stopRecording);
+    window.addEventListener("message", (event) => {
+      if (event.data && event.data.type === "streamlit:render") setHeight();
+    });
+    window.parent.postMessage({isStreamlitMessage: true, type: "streamlit:componentReady", apiVersion: 1}, "*");
+  </script>
+</body>
+</html>
